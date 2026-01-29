@@ -54,12 +54,11 @@ constructor(
     dumpManager: DumpManager,
 ) : Dumpable {
     val minBlurRadius = resources.getDimensionPixelSize(R.dimen.min_window_blur_radius).toFloat()
-    val maxBlurRadius =
-        if (Flags.notificationShadeBlur()) {
-            blurConfig.maxBlurRadiusPx
-        } else {
-            resources.getDimensionPixelSize(R.dimen.max_window_blur_radius).toFloat()
-        }
+    // Global hardcoded blur tuning (for smooth performance)
+    private val MAX_BLUR_RADIUS = 34f
+    private val GLOBAL_BLUR_SCALE = 1.0f
+
+val maxBlurRadius: Float = MAX_BLUR_RADIUS
 
     private var lastAppliedBlur = 0
     private var lastTargetViewRootImpl: ViewRootImpl? = null
@@ -156,7 +155,19 @@ constructor(
         val builder =
             SyncRtSurfaceTransactionApplier.SurfaceParams.Builder(viewRootImpl.surfaceControl)
         if (shouldBlur(radius)) {
-            builder.withBackgroundBlurRadius(radius)
+
+           // Scale down blur for better performance
+           val scaledRadius =
+               (radius * GLOBAL_BLUR_SCALE)
+                       .toInt()
+                       .coerceAtMost(MAX_BLUR_RADIUS.toInt())
+
+          // Skip tiny blur values (saves GPU)
+          if (scaledRadius < 1) {
+             builder.withBackgroundBlurRadius(0)
+             } else {
+             builder.withBackgroundBlurRadius(scaledRadius)
+          }
             if (shouldScaleWithTransaction()) {
                 builder.withBackgroundBlurScale(scale)
             }
